@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Content Decay · Omniscient Digital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Libre+Baskerville:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<style>
+  :root{
+    --bg:#f1f3ed; --card:#ffffff; --ink:#000000; --ink2:#676767;
+    --accent:#426600; --sage:#e5eade; --sage2:#b7c1a3;
+    --t1:#2f3d14; --t2:#426600; --t3:#8fa05e; --t4:#b8b3a7;
+    --up:#426600; --down:#a33b2e; --yellow:#fff2cc;
+    --both:#a33b2e; --topical:#2f3d14; --vis:#8fa05e; --unver:#b8b3a7; --ctx:#d5d9cc;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font-size:15px}
+  .serif{font-family:'copernicusbook','Libre Baskerville',Georgia,serif;font-weight:400}
+  header{display:flex;align-items:center;gap:16px;padding:22px 32px 10px;flex-wrap:wrap}
+  header img{height:30px}
+  header h1{font-size:26px;margin:0;flex:1 1 auto}
+  .controls{display:flex;gap:10px;align-items:center;padding:6px 32px 18px;flex-wrap:wrap}
+  .controls label{color:var(--ink2);font-size:13px}
+  select{font-family:'DM Sans';font-size:14px;padding:7px 10px;border:1px solid #00000033;border-radius:2px;background:var(--card);color:var(--ink)}
+  .wrap{padding:0 32px 48px;max-width:1280px;margin:0 auto}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+  .tile{background:var(--card);border:1px solid #00000014;border-radius:2px;padding:14px 16px 22px;position:relative}
+  .tile .k{font-size:12px;color:var(--ink2);text-transform:uppercase;letter-spacing:.04em}
+  .tile .v{font-size:26px;margin-top:4px}
+  .help{position:absolute;bottom:7px;right:9px;width:17px;height:17px;line-height:16px;text-align:center;border:1px solid #00000033;border-radius:50%;font-size:11px;color:var(--ink2);background:var(--card);cursor:help}
+  .help:hover{border-color:var(--accent);color:var(--accent)}
+  .help .tip{display:none;position:absolute;bottom:24px;right:-6px;width:274px;background:var(--card);border:1px solid #000;border-radius:2px;padding:10px 12px;font-size:12.5px;line-height:1.45;color:var(--ink);text-align:left;box-shadow:0 3px 10px #00000022;z-index:20;cursor:default;font-weight:400;text-transform:none;letter-spacing:0}
+  .help:hover .tip{display:block}
+  .chip{display:inline-block;font-size:12px;padding:1px 8px;border-radius:10px;margin-left:8px;vertical-align:middle}
+  .chip.up{background:var(--sage);color:var(--up)} .chip.down{background:#f3ddd9;color:var(--down)} .chip.flat{background:#eee;color:var(--ink2)}
+  .card{background:var(--card);border:1px solid #00000014;border-radius:2px;padding:18px 20px;margin-bottom:18px}
+  .card h2{font-size:19px;margin:0 0 4px}
+  .card .sub{color:var(--ink2);font-size:13px;margin-bottom:10px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+  #map{width:100%;height:440px}
+  #funnel{width:100%;height:300px}
+  #compose{width:100%;height:340px}
+  .insight{background:var(--sage);border:1px solid #000;border-radius:2px;padding:14px 18px;margin-bottom:18px}
+  .insight b{display:block;margin-bottom:6px}
+  .warn{background:#f3ddd9;border:1px solid var(--down);border-radius:2px;padding:12px 16px;margin-bottom:18px;font-size:13.5px}
+  .warn b{display:block;margin-bottom:4px;color:var(--down)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin-top:8px}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+  input[type=search]{font-family:'DM Sans';font-size:14px;padding:7px 10px;border:1px solid #00000033;border-radius:2px;min-width:240px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{background:#f1f3ed;text-align:left;padding:8px 10px;cursor:pointer;white-space:nowrap;border-bottom:1px solid #00000022;user-select:none}
+  th .arr{color:var(--accent)}
+  td{padding:7px 10px;border-bottom:1px solid #00000010;background:#fafbf8;white-space:nowrap}
+  tr:hover td{background:var(--sage)}
+  td.url{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  td a{color:var(--accent);text-decoration:none} td a:hover{text-decoration:underline}
+  .pill{display:inline-block;font-size:11px;padding:1px 7px;border-radius:9px;background:var(--sage);white-space:nowrap}
+  .pill.type{color:#fff}
+  .pill.new{background:var(--yellow);color:#000}
+  .pill.res{background:var(--sage);color:var(--up)}
+  .d-up{color:var(--up);font-weight:500}.d-down{color:var(--down);font-weight:500}.d-flat{color:var(--ink2)}
+  .pager{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:13px;color:var(--ink2)}
+  button{font-family:'DM Sans';font-size:13px;padding:6px 12px;border:1px solid #00000033;border-radius:2px;background:var(--card);cursor:pointer}
+  button:disabled{opacity:.4;cursor:default}
+  footer{padding:20px 32px 40px;color:var(--ink2);font-size:12.5px}
+  .movers{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .movers ul{margin:6px 0 0;padding-left:18px}
+  .movers li{margin-bottom:3px;font-size:13px}
+  @media(max-width:800px){.movers{grid-template-columns:1fr}}
+  .meta{display:flex;gap:22px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);padding:0 0 14px}
+  .meta span b{font-weight:500;color:var(--ink)}
+</style>
+</head>
+<body>
+<header>
+  <img src="https://beomniscient.com/wp-content/uploads/2023/08/omniscient-logo-text-icon.png" alt="Omniscient Digital">
+  <h1 class="serif">Content Decay</h1>
+  <a id="lflink" href="https://sergioquinonez-tseo.github.io/omniscient-linkflow/index.html" style="color:var(--accent);font-size:14px;text-decoration:none">Link Flow →</a>
+</header>
+<div class="controls">
+  <label>Client</label><select id="selClient"></select>
+  <label>Report</label><select id="selRun"></select>
+  <label>Compare with</label><select id="selCompare"><option value="">None</option></select>
+</div>
+<div class="wrap">
+  <div class="meta" id="meta"></div>
+  <div class="warn" id="warn" style="display:none"></div>
+  <div class="tiles" id="tiles"></div>
+  <div class="insight" id="insight" style="display:none"></div>
+
+  <div class="card">
+    <h2 class="serif">Decay map</h2>
+    <div class="sub" id="mapSub"></div>
+    <div id="map"></div>
+    <div class="legend" id="mapLegend"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2 class="serif">Where pages drop out</h2>
+      <div class="sub">Every gate is an AND, applied in order. The clicks gate runs before any query data is bought.</div>
+      <div id="funnel"></div>
+    </div>
+    <div class="card">
+      <h2 class="serif">What drives each score</h2>
+      <div class="sub" id="composeSub"></div>
+      <div id="compose"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="serif" id="lbTitle">Flagged pages</h2>
+    <div class="sub" id="lbSub"></div>
+    <div class="filters">
+      <input type="search" id="q" placeholder="Search URL...">
+      <select id="fType"><option value="">All decay types</option></select>
+      <select id="fStage">
+        <option value="FLAGGED">Flagged only</option>
+        <option value="POOL+">Reached the query stage</option>
+        <option value="">All outdated pages</option>
+      </select>
+      <select id="fMove" style="display:none"><option value="">All movement</option><option value="new">Newly flagged</option><option value="res">Resolved</option><option value="worse">Score worsened</option><option value="better">Score improved</option></select>
+    </div>
+    <div style="overflow-x:auto"><table id="tbl"><thead></thead><tbody></tbody></table></div>
+    <div class="pager"><button id="prev">Prev</button><span id="pageinfo"></span><button id="next">Next</button></div>
+  </div>
+</div>
+<footer>Omniscient Digital · internal prototype · data snapshots per run, published via publish_run.py · this instance is temporarily public</footer>
+<script>
+const $=s=>document.querySelector(s);
+const fmt=(n,d=2)=>n==null?'n/a':(+n).toLocaleString('en-US',{maximumFractionDigits:d});
+const pct=n=>n==null?'·':(n>0?'+':'')+fmt(n,1)+'%';
+const TYPE_COLORS={BOTH:'#a33b2e',TOPICAL:'#2f3d14',VISIBILITY:'#8fa05e',VISIBILITY_UNVERIFIED:'#b8b3a7'};
+const TYPE_ACTION={BOTH:'refresh content',TOPICAL:'expand coverage',VISIBILITY:'investigate SERP',VISIBILITY_UNVERIFIED:'investigate SERP'};
+let clients=[],manifest=null,run=null,cmp=null,cMap=null,cFunnel=null,cCompose=null;
+let state={page:0,per:50,sort:'rk',dir:1};
+
+const qs=new URLSearchParams(location.search);
+async function j(u){const r=await fetch(u);if(!r.ok)throw new Error(u);return r.json()}
+
+async function init(){
+  clients=(await j('data/clients.json')).clients;
+  $('#selClient').innerHTML=clients.map(c=>`<option value="${c.id}">${c.display_name}</option>`).join('');
+  $('#selClient').value=qs.get('client')||clients[0].id;
+  await loadClient();
+  $('#selClient').onchange=()=>{qs.set('client',$('#selClient').value);qs.delete('run');qs.delete('compare');push();loadClient()};
+  $('#selRun').onchange=()=>{qs.set('run',$('#selRun').value);push();loadRuns()};
+  $('#selCompare').onchange=()=>{const v=$('#selCompare').value;v?qs.set('compare',v):qs.delete('compare');push();loadRuns()};
+  ['q','fType','fStage','fMove'].forEach(id=>$('#'+id).addEventListener('input',()=>{state.page=0;renderTable()}));
+  $('#prev').onclick=()=>{state.page--;renderTable()};
+  $('#next').onclick=()=>{state.page++;renderTable()};
+}
+function push(){history.replaceState(null,'','?'+qs.toString())}
+
+async function loadClient(){
+  manifest=await j(`data/${$('#selClient').value}/manifest.json`);
+  const runs=[...manifest.runs].sort((a,b)=>b.date.localeCompare(a.date));
+  const opt=r=>`<option value="${r.id}">${r.date} · ${r.label}</option>`;
+  $('#selRun').innerHTML=runs.map(opt).join('');
+  $('#selCompare').innerHTML='<option value="">None</option>'+runs.map(opt).join('');
+  $('#selRun').value=qs.get('run')||runs[0].id;
+  if(qs.get('compare'))$('#selCompare').value=qs.get('compare');
+  await loadRuns();
+}
+async function loadRuns(){
+  const c=$('#selClient').value;
+  run=await j(`data/${c}/${$('#selRun').value}.json`);
+  const cv=$('#selCompare').value;
+  cmp=(cv&&cv!==run.id)?await j(`data/${c}/${cv}.json`):null;
+  // baseline = older run, current = newer (swap if the user picked backwards)
+  if(cmp&&cmp.date>run.date){const t=run;run=cmp;cmp=t;$('#selRun').value=run.id;$('#selCompare').value=cmp.id;}
+  const types=[...new Set(run.pages.filter(p=>p.dt).map(p=>p.dt))].sort();
+  $('#fType').innerHTML='<option value="">All decay types</option>'+types.map(x=>`<option>${x}</option>`).join('');
+  $('#fMove').style.display=cmp?'':'none';
+  state.page=0;state.sort=cmp?'dsc':'rk';state.dir=cmp?-1:1;
+  renderMeta();renderWarn();renderTiles();renderInsight();renderMap();renderFunnel();renderCompose();renderTable();
+}
+function prevMap(){const m=new Map();if(cmp)cmp.pages.forEach(p=>m.set(p.u,p));return m}
+
+function renderMeta(){
+  const w=run.windows,t=run.thresholds,c=run.config;
+  $('#meta').innerHTML=
+    `<span>Recent window <b>${w.recent[0]} → ${w.recent[1]}</b></span>`+
+    `<span>Prior window <b>${w.prior[0]} → ${w.prior[1]}</b></span>`+
+    `<span>Path filter <b>${c.path_filter||'none'}</b></span>`+
+    `<span>Staleness <b>${c.threshold_days}+ days</b></span>`+
+    `<span>Click floor <b>${t.min_prior_clicks}</b></span>`+
+    `<span>Heavy impression loss <b>${fmt(t.heavy_impr_lost,0)}</b></span>`+
+    `<span>Score <b>${c.w_query} × query loss + ${c.w_impr} × impression loss</b></span>`;
+}
+function renderWarn(){
+  const e=run.sitemap_errors||[];
+  $('#warn').style.display=e.length?'':'none';
+  if(e.length)$('#warn').innerHTML=`<b>This run may be built on a partial URL set</b>${e.length} sitemap fetch(es) failed during the scrape, and the engine continues on whatever it collected. Re-run before trusting these counts. ${e.map(x=>`<code>${x}</code>`).join(' ')}`;
+}
+
+function renderTiles(){
+  const M=run.metrics,C=cmp&&cmp.metrics;
+  const DEFS={
+    'Pages scanned':'URLs in the sitemap that matched the path filter. The starting population before any freshness or traffic test.',
+    'Outdated':'Pages whose last update is at least a year old. The threshold is 365 days because the two Search Console windows span about 179 days, so a year guarantees the last edit landed before both of them and the comparison measures decay rather than the edit itself.',
+    'Flagged':'Pages that cleared every gate: real click history, losing clicks, a meaningful decline, and then a shrinking non-branded query footprint and/or heavy impression loss. Treat this as a shortlist for human triage, not a work queue.',
+    'Clicks lost':'Total clicks the flagged pages gave up between the two windows. Click volume decides whether a page is eligible to be flagged, but it does not affect the ranking, so the biggest loser is often not the top-ranked page.',
+    'Impressions lost':'Total impressions the flagged pages gave up. Search Console over-attributes impressions by roughly 4 to 22% when segmented by page, so read these as comparative rather than absolute.'};
+  const tile=(k,v,delta,inv)=>{
+    let chip='';
+    if(C&&delta!=null&&isFinite(delta)){
+      const good=inv?delta<0:delta>0;
+      chip=`<span class="chip ${Math.abs(delta)<1e-9?'flat':good?'up':'down'}">${delta>0?'+':''}${fmt(delta,0)}</span>`;}
+    const help=DEFS[k]?`<div class="help">?<span class="tip">${DEFS[k]}</span></div>`:'';
+    return `<div class="tile"><div class="k">${k}</div><div class="v">${v}${chip}</div>${help}</div>`};
+  $('#tiles').innerHTML=
+    tile('Pages scanned',fmt(M.in_scope,0),C?M.in_scope-C.in_scope:null,false)+
+    tile('Outdated',fmt(M.outdated,0),C?M.outdated-C.outdated:null,true)+
+    tile('Flagged',fmt(M.flagged,0),C?M.flagged-C.flagged:null,true)+
+    tile('Clicks lost',fmt(M.clicks_lost,0),C?M.clicks_lost-C.clicks_lost:null,true)+
+    tile('Impressions lost',fmt(M.impr_lost,0),C?M.impr_lost-C.impr_lost:null,true);
+}
+function renderInsight(){
+  const box=$('#insight');
+  if(!cmp){box.style.display='none';return}
+  const prev=prevMap();
+  const nowF=run.pages.filter(p=>p.st==='FLAGGED');
+  const wasF=cmp.pages.filter(p=>p.st==='FLAGGED');
+  const wasSet=new Set(wasF.map(p=>p.u)),nowSet=new Set(nowF.map(p=>p.u));
+  const added=nowF.filter(p=>!wasSet.has(p.u));
+  const resolved=wasF.filter(p=>!nowSet.has(p.u));
+  let worse=[],better=[];
+  nowF.forEach(p=>{const o=prev.get(p.u);if(!o||o.sc==null)return;
+    const d=p.sc-o.sc;if(d>0.001)worse.push([p.u,d]);else if(d<-0.001)better.push([p.u,-d])});
+  worse.sort((a,b)=>b[1]-a[1]);better.sort((a,b)=>b[1]-a[1]);
+  const li=(a,cls,sign)=>a.slice(0,5).map(([u,d])=>`<li>${u} <span class="${cls}">${sign}${fmt(d,3)}</span></li>`).join('')||'<li class="d-flat">none</li>';
+  box.innerHTML=`<b>Insight: ${cmp.date} to ${run.date}</b>
+   ${added.length} newly flagged, ${resolved.length} resolved, ${nowF.length-added.length} still decaying.
+   <div class="movers"><div><b style="font-weight:500">Decayed further (score)</b><ul>${li(worse,'d-down','+')}</ul></div>
+   <div><b style="font-weight:500">Recovering (score)</b><ul>${li(better,'d-up','-')}</ul></div></div>`;
+  box.style.display='';
+}
+
+function renderMap(){
+  if(!cMap)cMap=echarts.init($('#map'));
+  const t=run.thresholds;
+  const pool=run.pages.filter(p=>p.qp!=null);
+  const maxCl=Math.max(1,...pool.map(p=>p.cl));
+  const sz=cl=>8+22*Math.sqrt(Math.max(cl,0)/maxCl);
+  const groups={};
+  pool.forEach(p=>{const k=p.dt||'Not flagged';(groups[k]=groups[k]||[]).push(p)});
+  const series=Object.entries(groups).map(([k,ps])=>({
+    name:k,type:'scatter',
+    symbolSize:d=>sz(d[4]),
+    itemStyle:{color:TYPE_COLORS[k]||'#d5d9cc',opacity:k==='Not flagged'?.55:.85,borderColor:'#00000022'},
+    data:ps.map(p=>[p.qp,p.ip,p.u,p.dt,p.cl,p.il,p.pq,p.rq,p.pc,p.rc,p.sc,p.d])}));
+  series[0]=Object.assign(series[0]||{},{markLine:{silent:true,symbol:'none',
+    lineStyle:{color:'#676767',type:'dashed',width:1},
+    label:{formatter:p=>p.name,color:'#676767',fontSize:11,fontFamily:'DM Sans',position:'insideStartTop'},
+    data:[{xAxis:t.clicks_drop_pct,name:`query ${t.clicks_drop_pct}%`},
+          {yAxis:t.heavy_impr_pct,name:`impressions ${t.heavy_impr_pct}%`}]}});
+  cMap.setOption({
+    grid:{left:64,right:24,top:22,bottom:48},
+    tooltip:{formatter:v=>{const d=v.data;return `<b>${d[2]}</b><br>`+
+      `${d[3]?d[3]+' · '+TYPE_ACTION[d[3]]:'not flagged'}${d[10]!=null?' · score '+fmt(d[10],3):''}<br>`+
+      `clicks ${fmt(d[8],0)} → ${fmt(d[9],0)} (lost ${fmt(d[4],0)})<br>`+
+      `non-branded queries ${fmt(d[6],0)} → ${fmt(d[7],0)} (${pct(v.data[0])})<br>`+
+      `impressions lost ${fmt(d[5],0)} (${pct(v.data[1])})<br>`+
+      `last updated ${fmt(d[11],0)} days ago`}},
+    xAxis:{name:'non-branded query change %',nameLocation:'middle',nameGap:30,type:'value',max:50,
+      axisLine:{lineStyle:{color:'#676767'}},splitLine:{lineStyle:{color:'#00000010'}}},
+    yAxis:{name:'impression change %',nameLocation:'middle',nameGap:46,nameRotate:90,type:'value',max:50,
+      axisLine:{lineStyle:{color:'#676767'}},splitLine:{lineStyle:{color:'#00000012'}}},
+    legend:{show:false},series},true);
+  $('#mapSub').textContent=`The ${pool.length} pages that cleared the clicks gate and had their query footprint measured. Position is the two percentage thresholds; dot size is clicks lost; colour is the label the engine assigned. Bottom-left of both dashed lines is BOTH territory, though VISIBILITY also requires at least ${fmt(t.heavy_impr_lost,0)} impressions lost in absolute terms.`;
+  $('#mapLegend').innerHTML=Object.keys(groups).map(k=>
+    `<span><i style="background:${TYPE_COLORS[k]||'#d5d9cc'}"></i>${k} · ${groups[k].length}</span>`).join('');
+}
+
+function renderFunnel(){
+  if(!cFunnel)cFunnel=echarts.init($('#funnel'));
+  const f=(run.funnel||[]).filter(s=>s.n!=null);
+  const cols=['#2f3d14','#3c5410','#426600','#6e8433','#8fa05e','#a33b2e'];
+  cFunnel.setOption({
+    grid:{left:126,right:64,top:10,bottom:26},
+    tooltip:{formatter:p=>{const s=f[p.dataIndex];const prev=p.dataIndex?f[p.dataIndex-1].n:null;
+      return `<b>${s.stage}: ${fmt(s.n,0)}</b><br>${s.note}${prev!=null?`<br>dropped ${fmt(prev-s.n,0)} at this step`:''}`}},
+    xAxis:{type:'value',axisLine:{lineStyle:{color:'#676767'}},splitLine:{lineStyle:{color:'#00000010'}}},
+    yAxis:{type:'category',inverse:true,data:f.map(s=>s.stage),
+      axisLine:{lineStyle:{color:'#676767'}},axisLabel:{color:'#000',fontFamily:'DM Sans',fontSize:12}},
+    series:[{type:'bar',data:f.map((s,i)=>({value:s.n,itemStyle:{color:cols[i%cols.length]}})),
+      barWidth:'58%',label:{show:true,position:'right',formatter:p=>fmt(p.value,0),
+        color:'#676767',fontFamily:'DM Sans',fontSize:12}}]},true);
+}
+
+function renderCompose(){
+  if(!cCompose)cCompose=echarts.init($('#compose'));
+  const wq=run.config.w_query,wi=run.config.w_impr,norm=run.thresholds.impr_normaliser;
+  const fl=run.pages.filter(p=>p.st==='FLAGGED').slice().sort((a,b)=>a.sc-b.sc);
+  const labels=fl.map(p=>p.u.replace(/^\/blog\//,'').replace(/\/$/,''));
+  const qpart=fl.map(p=>+(wq*Math.min(1,Math.abs(Math.min(p.qp||0,0))/100)).toFixed(4));
+  const ipart=fl.map(p=>+(wi*Math.min(1,Math.max(p.il,0)/norm)).toFixed(4));
+  cCompose.setOption({
+    grid:{left:150,right:50,top:10,bottom:52},
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:ps=>{const i=ps[0].dataIndex,p=fl[i];
+      return `<b>${p.u}</b><br>${p.dt} · score ${fmt(p.sc,3)}<br>`+
+        `query component ${fmt(qpart[i],3)} (${pct(p.qp)})<br>`+
+        `impression component ${fmt(ipart[i],3)} (${fmt(p.il,0)} lost)<br>`+
+        `clicks lost ${fmt(p.cl,0)} — not in the score`}},
+    legend:{data:['Query loss','Impression loss'],bottom:0,textStyle:{fontFamily:'DM Sans',fontSize:12,color:'#676767'},itemHeight:9,itemWidth:14},
+    xAxis:{type:'value',max:1,axisLine:{lineStyle:{color:'#676767'}},splitLine:{lineStyle:{color:'#00000010'}}},
+    yAxis:{type:'category',data:labels,axisLine:{lineStyle:{color:'#676767'}},
+      axisLabel:{color:'#000',fontFamily:'DM Sans',fontSize:11,width:140,overflow:'truncate'}},
+    series:[
+      {name:'Query loss',type:'bar',stack:'s',data:qpart,itemStyle:{color:'#2f3d14'},barWidth:'62%'},
+      {name:'Impression loss',type:'bar',stack:'s',data:ipart,itemStyle:{color:'#8fa05e'},barWidth:'62%'}]},true);
+  $('#composeSub').textContent=`Each flagged page's score split into its two parts: ${wq} × query loss and ${wi} × impression loss, capped at 1 each. Clicks decide eligibility only and never enter this calculation.`;
+}
+
+function filtered(){
+  const q=$('#q').value.toLowerCase(),ft=$('#fType').value,fs=$('#fStage').value,fm=$('#fMove').value;
+  const prev=prevMap();
+  let rows=run.pages.map(p=>{const o=prev.get(p.u);
+    return {...p,dsc:(o&&o.sc!=null&&p.sc!=null)?p.sc-o.sc:null,
+            drk:(o&&o.rk!=null&&p.rk!=null)?o.rk-p.rk:null,
+            isnew:cmp&&p.st==='FLAGGED'&&(!o||o.st!=='FLAGGED')}});
+  if(cmp&&fm==='res'){
+    const nowSet=new Set(run.pages.filter(p=>p.st==='FLAGGED').map(p=>p.u));
+    rows=cmp.pages.filter(p=>p.st==='FLAGGED'&&!nowSet.has(p.u)).map(p=>({...p,dsc:null,drk:null,res:true}));
+  } else {
+    if(fs==='FLAGGED')rows=rows.filter(r=>r.st==='FLAGGED');
+    else if(fs==='POOL+')rows=rows.filter(r=>r.st==='FLAGGED'||r.st==='POOL');
+    if(fm==='new')rows=rows.filter(r=>r.isnew);
+    if(fm==='worse')rows=rows.filter(r=>r.dsc>0);
+    if(fm==='better')rows=rows.filter(r=>r.dsc<0);
+  }
+  if(q)rows=rows.filter(r=>r.u.toLowerCase().includes(q));
+  if(ft)rows=rows.filter(r=>r.dt===ft);
+  const k=state.sort;
+  rows.sort((a,b)=>{const av=a[k]??(state.dir>0?1e9:-1e9),bv=b[k]??(state.dir>0?1e9:-1e9);
+    return state.dir*(av>bv?1:av<bv?-1:0)});
+  return rows;
+}
+function renderTable(){
+  const cols=[['rk','#'],['u','URL'],['dt','Type'],['sc','Score'],['d','Days old'],
+              ['cl','Clicks'],['cp','Δ clicks'],['qd','Queries'],['qp','Δ queries'],['il','Impr. lost'],['ip','Δ impr.']];
+  if(cmp)cols.splice(4,0,['dsc','Δ score'],['drk','Δ rank']);
+  $('#tbl thead').innerHTML='<tr>'+cols.map(([k,l])=>`<th data-k="${k}">${l} ${state.sort===k?`<span class="arr">${state.dir>0?'▲':'▼'}</span>`:''}</th>`).join('')+'</tr>';
+  document.querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;
+    if(state.sort===k)state.dir*=-1;else{state.sort=k;state.dir=(k==='u'||k==='dt'||k==='rk')?1:-1}
+    renderTable()});
+  const rows=filtered();
+  const maxp=Math.max(1,Math.ceil(rows.length/state.per));
+  state.page=Math.min(Math.max(0,state.page),maxp-1);
+  const slice=rows.slice(state.page*state.per,(state.page+1)*state.per);
+  const dcell=(v,d=0)=>v==null?'<td class="d-flat">·</td>':
+    `<td class="${v>0?'d-up':v<0?'d-down':'d-flat'}">${v>0?'+':''}${fmt(v,d)}</td>`;
+  $('#tbl tbody').innerHTML=slice.map(r=>{
+    const col=TYPE_COLORS[r.dt];
+    let h=`<tr><td>${r.rk?'#'+r.rk:'<span class="d-flat">·</span>'}</td>
+     <td class="url"><a href="${(run.base_url||'')+r.u}" target="_blank" rel="noopener">${r.u}</a>${r.isnew?' <span class="pill new">new</span>':''}${r.res?' <span class="pill res">resolved</span>':''}</td>
+     <td>${r.dt?`<span class="pill type" style="background:${col}">${r.dt}</span>`:'<span class="d-flat">·</span>'}</td>
+     <td>${r.sc!=null?fmt(r.sc,3):'<span class="d-flat">·</span>'}</td>`;
+    if(cmp)h+=dcell(r.dsc,3)+dcell(r.drk);
+    h+=`<td>${fmt(r.d,0)}</td>
+     <td>${fmt(r.pc,0)} → ${fmt(r.rc,0)}</td>
+     <td class="${r.cp<0?'d-down':'d-flat'}">${pct(r.cp)}</td>
+     <td>${r.pq!=null?`${fmt(r.pq,0)} → ${fmt(r.rq,0)}`:'<span class="d-flat">not measured</span>'}</td>
+     <td class="${r.qp<0?'d-down':r.qp>0?'d-up':'d-flat'}">${pct(r.qp)}</td>
+     <td>${fmt(r.il,0)}</td>
+     <td class="${r.ip<0?'d-down':'d-flat'}">${pct(r.ip)}</td></tr>`;
+    return h}).join('');
+  $('#pageinfo').textContent=`${rows.length} pages · page ${state.page+1}/${maxp}`;
+  $('#prev').disabled=state.page===0;$('#next').disabled=state.page>=maxp-1;
+  const M=run.metrics,bt=Object.entries(M.by_type||{}).map(([k,v])=>`${v} ${k}`).join(', ');
+  $('#lbTitle').textContent=cmp?'Flagged pages: movement':'Flagged pages';
+  $('#lbSub').textContent=cmp
+    ?`Comparing ${cmp.date} (baseline) to ${run.date}. A positive Δ score means the page decayed further.`
+    :`Run: ${run.date} · ${run.label} · ${bt}. Click any column to sort; switch the stage filter to see pages that fell short of a gate.`;
+}
+window.addEventListener('resize',()=>{[cMap,cFunnel,cCompose].forEach(c=>c&&c.resize())});
+init().catch(e=>{document.body.insertAdjacentHTML('beforeend',`<div class="wrap"><div class="card">Failed to load data: ${e.message}</div></div>`)});
+</script>
+</body>
+</html>
