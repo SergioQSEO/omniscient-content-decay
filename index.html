@@ -56,9 +56,11 @@
   .key{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #00000010}
   .key span i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:middle}
   .key b{font-weight:500;color:var(--ink)}
+  .key .caveat{flex:1 1 100%;color:var(--ink2);font-style:italic;margin-top:2px}
   table{width:100%;border-collapse:collapse;font-size:13.5px}
   th{background:#f1f3ed;text-align:left;padding:8px 10px;cursor:pointer;white-space:nowrap;border-bottom:1px solid #00000022;user-select:none}
   th .arr{color:var(--accent)}
+  th.nosort{cursor:default}
   td{padding:7px 10px;border-bottom:1px solid #00000010;background:#fafbf8;white-space:nowrap}
   tr:hover td{background:var(--sage)}
   td.url{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -123,7 +125,7 @@
     <div class="sub" id="lbSub"></div>
     <div class="filters">
       <input type="search" id="q" placeholder="Search URL...">
-      <select id="fType"><option value="">All actions</option></select>
+      <select id="fType"><option value="">All types</option></select>
       <select id="fStage">
         <option value="FLAGGED">Flagged only</option>
         <option value="POOL+">Reached the query stage</option>
@@ -144,15 +146,18 @@ const $=s=>document.querySelector(s);
 const fmt=(n,d=2)=>n==null?'n/a':(+n).toLocaleString('en-US',{maximumFractionDigits:d});
 const pct=n=>n==null?'·':(n>0?'+':'')+fmt(n,1)+'%';
 const TYPE_COLORS={BOTH:'#a33b2e',TOPICAL:'#2f3d14',VISIBILITY:'#8fa05e',VISIBILITY_UNVERIFIED:'#b8b3a7'};
-const ACTION={BOTH:'Refresh',TOPICAL:'Expand',VISIBILITY:'Check SERP',VISIBILITY_UNVERIFIED:'Check SERP (unverified)'};
-const ACTION_SHORT={BOTH:'coverage and visibility both down',TOPICAL:'ranks for fewer searches than it used to',VISIBILITY:'same searches, far fewer impressions',VISIBILITY_UNVERIFIED:'impressions down, coverage never measured'};
-const ACTION_DEF={
-  BOTH:'Refresh. This page ranks for fewer different searches than it used to AND is being shown less often for the ones it kept. Both signals are down, which makes it the clearest candidate for a content refresh.',
-  TOPICAL:'Expand. This page still gets shown, but it ranks for fewer different searches than it did three months ago. Its topic coverage has shrunk, so it needs new or broader content rather than a tidy-up.',
-  VISIBILITY:'Check SERP. This page still ranks for the same searches but is being shown far less often. That usually means an AI Overview or a new competitor took the space, so rewriting the copy probably will not help. Look at the results page before committing any writing time.',
-  VISIBILITY_UNVERIFIED:'Check SERP, unverified. Impressions collapsed, but this page never had its query footprint measured, so we cannot tell whether its coverage shrank too. This only happens on capped runs where the query budget ran out.'};
+const TYPE_SHORT={
+  BOTH:'ranks for fewer searches AND is shown less often',
+  TOPICAL:'ranks for fewer distinct non-branded searches',
+  VISIBILITY:'shown less often for a similar set of searches',
+  VISIBILITY_UNVERIFIED:'shown less often, search coverage never measured'};
+const TYPE_DEF={
+  BOTH:'BOTH. Non-branded query count fell more than 20%, and impressions fell more than 20% and by at least 2,000. Between the two windows this page ranked for fewer distinct searches and was shown less often. Both measured signals moved; what caused them to move is not determined here.',
+  TOPICAL:'TOPICAL. Non-branded query count fell more than 20%. The page ranked for fewer distinct searches than in the prior window. Its impression loss did not clear the heavy-loss bar of 2,000 impressions and 20%.',
+  VISIBILITY:'VISIBILITY. Impressions fell more than 20% and by at least 2,000, while the non-branded query count stayed within 20%. The page appeared for a similar set of searches but was shown less often.',
+  VISIBILITY_UNVERIFIED:'VISIBILITY_UNVERIFIED. Impressions fell as above, but this page never had its non-branded query count measured, so whether its search coverage also shrank is unknown. Only occurs on capped runs where the query budget ran out.'};
 let clients=[],manifest=null,run=null,cmp=null,cPareto=null,cTriage=null,cCompose=null;
-let state={page:0,per:50,sort:'rk',dir:1};
+let state={page:0,per:50,sort:'sc',dir:-1};
 
 const qs=new URLSearchParams(location.search);
 async function j(u){const r=await fetch(u);if(!r.ok)throw new Error(u);return r.json()}
@@ -190,9 +195,9 @@ async function loadRuns(){
   // baseline = older run, current = newer (swap if the user picked backwards)
   if(cmp&&cmp.date>run.date){const t=run;run=cmp;cmp=t;$('#selRun').value=run.id;$('#selCompare').value=cmp.id;}
   const types=[...new Set(run.pages.filter(p=>p.dt).map(p=>p.dt))].sort();
-  $('#fType').innerHTML='<option value="">All actions</option>'+types.map(x=>`<option value="${x}">${ACTION[x]}</option>`).join('');
+  $('#fType').innerHTML='<option value="">All types</option>'+types.map(x=>`<option value="${x}">${x}</option>`).join('');
   $('#fMove').style.display=cmp?'':'none';
-  state.page=0;state.sort=cmp?'dsc':'rk';state.dir=cmp?-1:1;
+  state.page=0;state.sort=cmp?'dsc':'sc';state.dir=-1;
   renderMeta();renderWarn();renderTiles();renderInsight();renderKey();
   renderPareto();renderTriage();renderCompose();renderTable();
 }
@@ -220,7 +225,8 @@ function renderKey(){
   const present=[...new Set(flagged().map(p=>p.dt))];
   const order=['BOTH','TOPICAL','VISIBILITY','VISIBILITY_UNVERIFIED'].filter(k=>present.includes(k));
   $('#actionKey').innerHTML=order.map(k=>
-    `<span title="${ACTION_DEF[k]}"><i style="background:${TYPE_COLORS[k]}"></i><b>${ACTION[k]}</b> — ${ACTION_SHORT[k]}</span>`).join('');
+    `<span title="${TYPE_DEF[k]}"><i style="background:${TYPE_COLORS[k]}"></i><b>${k}</b> — ${TYPE_SHORT[k]}</span>`).join('')
+    +'<span class="caveat">These types describe which signals moved between the two windows, not why. Falling search demand, seasonality, cannibalisation, ranking changes and Search Console thresholds all produce the same patterns, and each needs its own investigation.</span>';
 }
 
 function renderTiles(){
@@ -275,7 +281,7 @@ function renderPareto(){
     grid:{left:60,right:60,top:22,bottom:104},
     tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:ps=>{
       const i=ps[0].dataIndex,p=fl[i];
-      return `<b>${p.u}</b><br>${ACTION[p.dt]}<br>`+
+      return `<b>${p.u}</b><br>${p.dt}<br>`+
         `clicks ${fmt(p.pc,0)} → ${fmt(p.rc,0)}, lost ${fmt(p.cl,0)} (${pct(p.cp)})<br>`+
         `this page and those to its left are ${cum[i]}% of all clicks lost`}},
     xAxis:{type:'category',data:fl.map(p=>slug(p.u)),
@@ -291,7 +297,7 @@ function renderPareto(){
       {type:'line',yAxisIndex:1,data:cum,symbol:'circle',symbolSize:5,
        lineStyle:{color:'#a33b2e',width:1.5},itemStyle:{color:'#a33b2e'}}]},true);
   const top3=cum[Math.min(2,cum.length-1)];
-  $('#paretoSub').textContent=`Clicks each flagged page gave up between the two windows, biggest first, with the running share of the total. The top ${Math.min(3,fl.length)} pages account for ${top3}% of the ${fmt(total,0)} clicks lost, so that is where the recoverable traffic actually sits. Bar colour is the action the page needs.`;
+  $('#paretoSub').textContent=`Clicks each flagged page gave up between the two windows, biggest first, with the running share of the total. The top ${Math.min(3,fl.length)} pages account for ${top3}% of the ${fmt(total,0)} clicks lost, so that is where the recoverable traffic actually sits. Bar colour is the decay type.`;
 }
 
 function renderTriage(){
@@ -301,13 +307,13 @@ function renderTriage(){
   const groups={};
   fl.forEach(p=>{(groups[p.dt]=groups[p.dt]||[]).push(p)});
   const series=Object.entries(groups).map(([k,ps])=>({
-    name:ACTION[k]||k,type:'scatter',
+    name:k,type:'scatter',
     symbolSize:d=>10+20*Math.sqrt(Math.max(d[2],0)/maxIl),
     itemStyle:{color:TYPE_COLORS[k]||'#8fa05e',opacity:.85,borderColor:'#00000022'},
     data:ps.map(p=>[p.d,p.cl,p.il,p.u,p.dt,p.pc,p.rc])}));
   cTriage.setOption({
     grid:{left:58,right:24,top:20,bottom:46},
-    tooltip:{formatter:v=>{const d=v.data;return `<b>${d[3]}</b><br>${ACTION[d[4]]||''}<br>`+
+    tooltip:{formatter:v=>{const d=v.data;return `<b>${d[3]}</b><br>${d[4]||''}<br>`+
       `clicks ${fmt(d[5],0)} → ${fmt(d[6],0)}, lost ${fmt(d[1],0)}<br>`+
       `last updated ${fmt(d[0],0)} days ago<br>`+
       `impressions lost ${fmt(d[2],0)}`}},
@@ -318,7 +324,7 @@ function renderTriage(){
     legend:{show:false},series},true);
   $('#triageSub').textContent='Every flagged page by how stale it is and how much traffic it gave up. Bubble size is impressions lost. Up and to the right means old and bleeding, which is where to start.';
   $('#triageLegend').innerHTML=Object.keys(groups).map(k=>
-    `<span title="${ACTION_DEF[k]}"><i style="background:${TYPE_COLORS[k]}"></i>${ACTION[k]} · ${groups[k].length}</span>`).join('');
+    `<span title="${TYPE_DEF[k]}"><i style="background:${TYPE_COLORS[k]}"></i>${k} · ${groups[k].length}</span>`).join('');
 }
 
 function renderCompose(){
@@ -331,7 +337,7 @@ function renderCompose(){
   cCompose.setOption({
     grid:{left:150,right:50,top:10,bottom:52},
     tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:ps=>{const i=ps[0].dataIndex,p=fl[i];
-      return `<b>${p.u}</b><br>${ACTION[p.dt]} · score ${fmt(p.sc,3)}<br>`+
+      return `<b>${p.u}</b><br>${p.dt} · score ${fmt(p.sc,3)}<br>`+
         `query component ${fmt(qpart[i],3)} (${pct(p.qp)})<br>`+
         `impression component ${fmt(ipart[i],3)} (${fmt(p.il,0)} lost)<br>`+
         `clicks lost ${fmt(p.cl,0)} — not in the score`}},
@@ -371,14 +377,16 @@ function filtered(){
 }
 function downloadCSV(){
   const rows=filtered();
-  const head=['Rank','URL','Action','Decay type','Score','Days since update',
+  const head=['Rank','URL','Decay type','Score','Days since update',
     'Prior clicks','Recent clicks','Clicks lost','Clicks change %',
     'Prior non-branded queries','Recent non-branded queries','Query change %',
-    'Impressions lost','Impressions change %','Stage'];
+    'Impressions lost','Impressions change %',
+    'Prior avg position','Recent avg position','Position change','Stage'];
   const esc=v=>{if(v==null)return '';const s=String(v);
     return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
-  const body=rows.map(r=>[r.rk,(run.base_url||'')+r.u,r.dt?ACTION[r.dt]:'',r.dt||'',
-    r.sc,r.d,r.pc,r.rc,r.cl,r.cp,r.pq,r.rq,r.qp,r.il,r.ip,r.st].map(esc).join(','));
+  const body=rows.map(r=>[r.rk,(run.base_url||'')+r.u,r.dt||'',
+    r.sc,r.d,r.pc,r.rc,r.cl,r.cp,r.pq,r.rq,r.qp,r.il,r.ip,
+    r.pp,r.rp,r.dp,r.st].map(esc).join(','));
   const csv='﻿'+[head.join(','),...body].join('\r\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
@@ -387,12 +395,15 @@ function downloadCSV(){
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
 }
 function renderTable(){
-  const cols=[['rk','#'],['u','URL'],['dt','Action'],['sc','Score'],['d','Days old'],
-              ['cl','Clicks'],['cp','Δ clicks'],['qd','Queries'],['qp','Δ queries'],['il','Impr. lost'],['ip','Δ impr.']];
+  const cols=[['__i','#'],['u','URL'],['dt','Type'],['sc','Score'],['d','Days old'],
+              ['cl','Clicks'],['cp','Δ clicks'],['qd','Queries'],['qp','Δ queries'],
+              ['il','Impr. lost'],['ip','Δ impr.'],['pp','Avg position'],['dp','Δ pos']];
   if(cmp)cols.splice(4,0,['dsc','Δ score'],['drk','Δ rank']);
-  $('#tbl thead').innerHTML='<tr>'+cols.map(([k,l])=>`<th data-k="${k}">${l} ${state.sort===k?`<span class="arr">${state.dir>0?'▲':'▼'}</span>`:''}</th>`).join('')+'</tr>';
-  document.querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;
-    if(state.sort===k)state.dir*=-1;else{state.sort=k;state.dir=(k==='u'||k==='dt'||k==='rk')?1:-1}
+  $('#tbl thead').innerHTML='<tr>'+cols.map(([k,l])=>k==='__i'
+    ?`<th class="nosort" title="Row number in the current view. Re-numbers when you sort or filter.">${l}</th>`
+    :`<th data-k="${k}">${l} ${state.sort===k?`<span class="arr">${state.dir>0?'▲':'▼'}</span>`:''}</th>`).join('')+'</tr>';
+  document.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;
+    if(state.sort===k)state.dir*=-1;else{state.sort=k;state.dir=(k==='u'||k==='dt')?1:-1}
     renderTable()});
   const rows=filtered();
   const maxp=Math.max(1,Math.ceil(rows.length/state.per));
@@ -400,11 +411,11 @@ function renderTable(){
   const slice=rows.slice(state.page*state.per,(state.page+1)*state.per);
   const dcell=(v,d=0)=>v==null?'<td class="d-flat">·</td>':
     `<td class="${v>0?'d-up':v<0?'d-down':'d-flat'}">${v>0?'+':''}${fmt(v,d)}</td>`;
-  $('#tbl tbody').innerHTML=slice.map(r=>{
+  $('#tbl tbody').innerHTML=slice.map((r,i)=>{
     const col=TYPE_COLORS[r.dt];
-    let h=`<tr><td>${r.rk?'#'+r.rk:'<span class="d-flat">·</span>'}</td>
+    let h=`<tr><td>${state.page*state.per+i+1}</td>
      <td class="url"><a href="${(run.base_url||'')+r.u}" target="_blank" rel="noopener">${r.u}</a>${r.isnew?' <span class="pill new">new</span>':''}${r.res?' <span class="pill res">resolved</span>':''}</td>
-     <td>${r.dt?`<span class="pill type" style="background:${col}" title="${ACTION_DEF[r.dt]}">${ACTION[r.dt]}</span>`:'<span class="d-flat">·</span>'}</td>
+     <td>${r.dt?`<span class="pill type" style="background:${col}" title="${TYPE_DEF[r.dt]}">${r.dt}</span>`:'<span class="d-flat">·</span>'}</td>
      <td>${r.sc!=null?fmt(r.sc,3):'<span class="d-flat">·</span>'}</td>`;
     if(cmp)h+=dcell(r.dsc,3)+dcell(r.drk);
     h+=`<td>${fmt(r.d,0)}</td>
@@ -413,15 +424,17 @@ function renderTable(){
      <td>${r.pq!=null?`${fmt(r.pq,0)} → ${fmt(r.rq,0)}`:'<span class="d-flat">not measured</span>'}</td>
      <td class="${r.qp<0?'d-down':r.qp>0?'d-up':'d-flat'}">${pct(r.qp)}</td>
      <td>${fmt(r.il,0)}</td>
-     <td class="${r.ip<0?'d-down':'d-flat'}">${pct(r.ip)}</td></tr>`;
+     <td class="${r.ip<0?'d-down':'d-flat'}">${pct(r.ip)}</td>
+     <td>${r.pp!=null?`${fmt(r.pp,1)} → ${fmt(r.rp,1)}`:'<span class="d-flat">·</span>'}</td>
+     <td class="${r.dp>0?'d-down':'d-flat'}" title="Average position is weighted by impressions and averaged over a query set that itself changed, so read it as context rather than a clean ranking movement.">${r.dp!=null?(r.dp>0?'+':'')+fmt(r.dp,1):'·'}</td></tr>`;
     return h}).join('');
   $('#pageinfo').textContent=`${rows.length} pages · page ${state.page+1}/${maxp}`;
   $('#prev').disabled=state.page===0;$('#next').disabled=state.page>=maxp-1;
-  const M=run.metrics,bt=Object.entries(M.by_type||{}).map(([k,v])=>`${v} ${ACTION[k]||k}`).join(', ');
+  const M=run.metrics,bt=Object.entries(M.by_type||{}).map(([k,v])=>`${v} ${k}`).join(', ');
   $('#lbTitle').textContent=cmp?'Flagged pages: movement':'Flagged pages';
   $('#lbSub').textContent=cmp
     ?`Comparing ${cmp.date} (baseline) to ${run.date}. A positive Δ score means the page decayed further. The CSV exports whatever the filters currently show.`
-    :`Run: ${run.date} · ${run.label} · ${bt}. Click any column to sort, hover an action for what it means, and the CSV exports whatever the filters currently show.`;
+    :`Run: ${run.date} · ${run.label} · ${bt}. Click any column to sort, hover a type for its full definition, and the CSV exports whatever the filters currently show.`;
 }
 window.addEventListener('resize',()=>{[cPareto,cTriage,cCompose].forEach(c=>c&&c.resize())});
 init().catch(e=>{document.body.insertAdjacentHTML('beforeend',`<div class="wrap"><div class="card">Failed to load data: ${e.message}</div></div>`)});
