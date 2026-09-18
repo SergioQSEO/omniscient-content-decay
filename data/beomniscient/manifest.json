@@ -1,0 +1,22 @@
+{
+ "client": "beomniscient",
+ "display_name": "Omniscient Digital",
+ "base_url": "https://beomniscient.com",
+ "runs": [
+  {
+   "id": "2026-09-17",
+   "date": "2026-09-17",
+   "label": "Validation run",
+   "outdated": 374,
+   "pool": 30,
+   "flagged": 13,
+   "by_type": {
+    "BOTH": 5,
+    "VISIBILITY": 3,
+    "TOPICAL": 5
+   },
+   "clicks_lost": 108,
+   "impr_lost": 48174
+  }
+ ]
+}
